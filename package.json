@@ -14,6 +14,7 @@
     "verify:react": "node scripts/verify-react.mjs",
     "verify:interaction": "node scripts/verify-interaction.mjs",
     "verify:render": "node scripts/verify-render.mjs",
+    "verify:pages": "node scripts/verify-pages.mjs",
     "smoke": "npm run build && node scripts/smoke.mjs",
     "smoke:shots": "npm run build && node scripts/smoke.mjs --shots",
     "models": "node scripts/make-models.mjs",

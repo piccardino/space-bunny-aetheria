@@ -15,6 +15,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { Placeholder } from './blocks.jsx';
+import { asset } from '../core/asset.js';
 
 /**
  * Spins the model about its OWN facing axis (Z).
@@ -57,7 +58,10 @@ class GLTFBoundary extends React.Component {
  * "GlTFModel is not part of the THREE namespace" and the model never renders.
  */
 function GLTFModel({ src }) {
-  const { scene } = useGLTF(src);
+  // resolved here rather than in blocks.jsx so ANY caller of <ModelBlock> gets
+  // a correctly-prefixed URL, not just the content-driven page route
+  const url = asset(src);
+  const { scene } = useGLTF(url);
   const clone = useRef();
   if (!clone.current) {
     clone.current = scene.clone(true);

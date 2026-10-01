@@ -33,6 +33,7 @@
  */
 
 import { Suspense, lazy, useState } from 'react';
+import { asset } from '../core/asset.js';
 
 const LazyModel = lazy(() => import('./ModelBlock.jsx'));
 
@@ -121,7 +122,7 @@ const ImageSlot = ({ alt, ratio = '16 / 10', caption, src }) => {
   if (src && !failed) {
     return (
       <figure className="shot">
-        <img src={src} alt={alt ?? ''} loading="lazy" onError={() => setFailed(true)} />
+        <img src={asset(src)} alt={alt ?? ''} loading="lazy" onError={() => setFailed(true)} />
         {caption && <figcaption>{caption}</figcaption>}
       </figure>
     );
@@ -163,7 +164,7 @@ const VideoBlock = ({ src, poster, caption, ratio = '16 / 9' }) => {
           loading="lazy"
         />
       ) : (
-        <video src={src} poster={poster} controls playsInline preload="metadata" />
+        <video src={asset(src)} poster={asset(poster)} controls playsInline preload="metadata" />
       )}
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
@@ -215,7 +216,7 @@ const Gallery = ({ items = [] }) => (
     {items.length === 0 && <Placeholder label="gallery" hint="add images to the 'gallery' block" />}
     {items.map((it, i) => (
       <figure key={i} className="tile">
-        {it.src ? <img src={it.src} alt={it.title ?? ''} loading="lazy" /> : <span className="tile__ghost" />}
+        {it.src ? <img src={asset(it.src)} alt={it.title ?? ''} loading="lazy" /> : <span className="tile__ghost" />}
         <figcaption>{it.title ?? `Shot ${i + 1}`}</figcaption>
       </figure>
     ))}

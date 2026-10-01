@@ -34,6 +34,37 @@ Chrome/Edge. Pass `--shots` to write `shot-island.png` / `shot-page.png`.
 
 ---
 
+## Deploying to GitHub Pages
+
+Pushing to `main` builds and publishes automatically
+(`.github/workflows/deploy.yml`) → **https://piccardino.github.io/space-bunny-aetheria/**
+
+Pages must be set to **Source: GitHub Actions** — not "Deploy from a branch".
+Serving the branch directly would publish the repository's *sources* at the
+domain root, and there is no `index.html` there that a browser can run.
+
+Two things make the subpath work, and both are easy to break:
+
+| Piece | Why it exists |
+| --- | --- |
+| `base` in `vite.config.js` (via `BASE_PATH`) | A project site lives at `/<repo>/`, not `/`. Without it every asset 404s and you get a blank page. |
+| `asset()` in `src/core/asset.js` | `'/models/x.glb'` resolves against the *domain* root. It prefixes the base so content files can keep using plain paths. |
+| `spaFallback` plugin | Pages has no rewrite rules, so it emits a `404.html` that bounces deep links back to the SPA. |
+
+To reproduce the production layout locally:
+
+```bash
+set BASE_PATH=/space-bunny-aetheria/   # POSIX: export BASE_PATH=/space-bunny-aetheria/
+npm run build
+node scripts/verify-pages.mjs          # serves dist/ under the subpath, drives a real browser
+```
+
+`verify-pages.mjs` is the one check that catches a broken deploy: `npm run verify`
+and `npm run preview` both serve from the root, so neither of them can see a
+subpath problem.
+
+---
+
 ## The idea
 
 Most portfolio sites put the work in a grid and the 3D in a hero image.

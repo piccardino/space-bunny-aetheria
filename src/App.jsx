@@ -19,6 +19,7 @@ import { HoverLabel } from './ui/HoverLabel.jsx';
 import { useSceneTransition, TransitionVeil } from './navigation/SceneTransition.jsx';
 import { useWorld } from './core/store.js';
 import { supportsWebGL } from './core/quality.js';
+import { asset } from './core/asset.js';
 import { playSfx } from './audio/audio.js';
 
 const PlacePage = lazy(() => import('./pages/PlacePage.jsx').then((m) => ({ default: m.PlacePage })));
@@ -150,7 +151,7 @@ function WebGLFallback() {
           <br />
           Try a recent Chrome, Edge, Firefox or Safari with hardware acceleration on.
         </p>
-        <a className="btn btn--primary" href="/projects">Browse the archive instead →</a>
+        <a className="btn btn--primary" href={asset('/projects')}>Browse the archive instead →</a>
       </div>
     </div>
   );
