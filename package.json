@@ -1,0 +1,37 @@
+{
+  "name": "steampunk-voxel-floating-world",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Awwwards-grade interactive steampunk voxel floating island homepage. The island IS the navigation.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "verify": "node scripts/verify-voxel.mjs && node scripts/verify-world.mjs && node scripts/verify-react.mjs",
+    "verify:voxel": "node scripts/verify-voxel.mjs",
+    "verify:world": "node scripts/verify-world.mjs",
+    "verify:react": "node scripts/verify-react.mjs",
+    "verify:interaction": "node scripts/verify-interaction.mjs",
+    "verify:render": "node scripts/verify-render.mjs",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "smoke:shots": "npm run build && node scripts/smoke.mjs --shots",
+    "models": "node scripts/make-models.mjs",
+    "diag": "node scripts/diag.mjs"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.114.3",
+    "@react-three/fiber": "^8.17.10",
+    "@react-three/postprocessing": "^2.16.3",
+    "postprocessing": "^6.36.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "three": "^0.169.0",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.2",
+    "vite": "^5.4.8"
+  }
+}

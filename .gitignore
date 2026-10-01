@@ -1,0 +1,24 @@
+node_modules
+dist
+dist-ssr
+.DS_Store
+*.local
+.vite
+npm-debug.log*
+
+# test artefacts
+shot-island.png
+shot-page.png
+smoke.log
+build.log
+profile-tmp.mjs
+
+# local run/debug logs
+*.log
+repro-log.txt
+
+# local verification screenshots
+verify-*.png
+
+# generated model sheets (rebuild with: node scripts/render-models.mjs)
+renders/
