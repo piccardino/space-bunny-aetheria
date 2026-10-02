@@ -25,3 +25,7 @@ shot-*.png
 
 # generated model sheets (rebuild with: node scripts/render-models.mjs)
 renders/
+
+# local diagnostics: screenshots, crops, probe logs (rebuild by re-running the
+# scripts in scripts/ — nothing here is source)
+artifacts/

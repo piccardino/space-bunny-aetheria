@@ -20,6 +20,13 @@ export const useWorld = create((set, get) => ({
   /* ---------------- interaction ---------------- */
   hoveredId: null,
   setHovered: (id) => {
+    // Published to the browser-side test (scripts/hover-ab.mjs), which needs to
+    // know which building the pointer is actually over in order to A/B a
+    // screenshot against the un-hovered baseline from a fixed camera. Dev-only,
+    // so the debug handle never ships.
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      window.__aetheriaHoverId = id;
+    }
     if (get().hoveredId !== id) set({ hoveredId: id });
   },
 
