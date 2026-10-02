@@ -8,7 +8,7 @@
  * idle orbit keeps running in the background. The page overlay simply slides
  * over it.
  */
-import { Suspense, lazy, useCallback, useRef, useEffect } from 'react';
+import { Suspense, lazy, useCallback, useRef, useEffect, useState } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 
@@ -34,6 +34,31 @@ export default function App() {
   const hoveredId = useWorld((s) => s.hoveredId);
   const tier = useWorld((s) => s.tier);
   const renderScale = useWorld((s) => s.renderScale);
+
+  /**
+   * Keep the canvas in step with the display, not just with mount time.
+   *
+   * Reading `window.devicePixelRatio` during render is only correct for as long
+   * as the ratio holds still. On a phone it does not:
+   *
+   *   • a browser UI bar sliding in/out (address bar collapsing on scroll)
+   *     fires a resize without changing the CSS size;
+   *   • pinch-zoom on any region that is NOT `touch-action: none` — the page
+   *     overlay, the HUD — scales the visual viewport, so devicePixelRatio moves
+   *     while the canvas box stays put.
+   *
+   * The EffectComposer resizes its render targets only when the CSS `size`
+   * changes, never when the pixel ratio changes. So a ratio that moves on its
+   * own leaves the composer rendering at the old resolution and the final blit
+   * samples a region that no longer lines up with the canvas — the screen goes
+   * black. It looks intermittent because it depends on whether the gesture
+   * landed on the canvas or on the chrome above it.
+   *
+   * Subscribing to the ratio makes it an explicit input: the whole Canvas tree
+   * re-renders, R3F re-applies `dpr`, and the composer follows on the next
+   * layout pass instead of being left behind.
+   */
+  const dpr = useViewportDpr(tier.dpr) * renderScale;
 
   const onArrive = useCallback(() => {
     useWorld.getState().arriveAt();
@@ -89,10 +114,7 @@ export default function App() {
            * same single owner rather than touching the renderer directly, which
            * is what keeps the composer in step when it changes.
            */
-          dpr={
-            Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, tier.dpr)
-            * renderScale
-          }
+          dpr={dpr}
           shadows
           gl={{
             antialias: false,
@@ -139,6 +161,91 @@ export default function App() {
       <Intro />
     </div>
   );
+}
+
+/**
+ * The device pixel ratio, as a value that UPDATES.
+ *
+ * Three things move it at runtime, and none of them is a React render:
+ *   • pinch-zooming part of the page (the visual viewport scales);
+ *   • the browser's own zoom / display change;
+ *   • dragging a window between a Retina and a non-Retina screen.
+ *
+ * Detection is deliberately belt-and-braces, because each signal alone misses
+ * cases:
+ *
+ *   • a matchMedia `(resolution: Ndppx)` query is the standard way to be told
+ *     about a ratio change, but a browser only re-evaluates it when the query
+ *     is re-created at the new value, so it has to be rebuilt each time it
+ *     fires — a query created once goes stale and silent;
+ *   • `resize` covers the cases where the layout viewport changes (a mobile
+ *     address bar collapsing) which may not re-evaluate the query;
+ *   • a ResizeObserver on the canvas is the backstop: R3F re-allocates the
+ *     drawing buffer when the ratio changes, so the canvas element itself is a
+ *     reliable witness that something moved, even on the engines where the
+ *     matchMedia query silently stops firing.
+ *
+ * @param {number} maxDpr  the tier ceiling to clamp against
+ */
+function useViewportDpr(maxDpr) {
+  const read = () =>
+    typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, maxDpr);
+
+  const [dpr, setDpr] = useState(read);
+
+  useEffect(() => {
+    const update = () =>
+      setDpr((prev) => {
+        const next = read();
+        // bail when nothing moved, so a chatty resize cannot re-render forever
+        return Math.abs(prev - next) < 0.001 ? prev : next;
+      });
+
+    // A ratio change and a viewport change are told apart by whether the ratio
+    // itself differs; either way the canvas has to be told to re-measure.
+    let mq = null;
+    const armQuery = () => {
+      mq?.removeEventListener?.('change', onMediaChange);
+      if (typeof window.matchMedia !== 'function') return;
+      mq = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+      mq.addEventListener?.('change', onMediaChange);
+    };
+
+    function onMediaChange() {
+      update();
+      // re-arm at the new ratio so the next change is caught too
+      armQuery();
+    }
+
+    const onResize = () => update();
+    const onOrientation = () => setTimeout(update, 120);
+
+    update();
+    armQuery();
+
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onOrientation);
+
+    // Backstop: the canvas element changing size means the drawing buffer was
+    // reallocated, which only happens when the effective ratio moved.
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      const el = document.querySelector('.app__canvas canvas');
+      if (el) {
+        ro = new ResizeObserver(() => update());
+        ro.observe(el);
+      }
+    }
+
+    return () => {
+      mq?.removeEventListener?.('change', onMediaChange);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onOrientation);
+      ro?.disconnect();
+    };
+  }, [maxDpr]);
+
+  return dpr;
 }
 
 function WebGLFallback() {

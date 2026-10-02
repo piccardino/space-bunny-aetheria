@@ -19,6 +19,9 @@ repro-log.txt
 
 # local verification screenshots
 verify-*.png
+ctx-*.png
+touch-*.png
+shot-*.png
 
 # generated model sheets (rebuild with: node scripts/render-models.mjs)
 renders/

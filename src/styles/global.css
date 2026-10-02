@@ -66,12 +66,33 @@ a { color: inherit; }
 .app__canvas { position: fixed; inset: 0; z-index: 0; }
 .app__canvas canvas { display: block; touch-action: none; }
 
+/* The island owns every two-finger gesture: `touch-action: none` is what stops
+   the browser from turning a pinch on the 3D scene into a pinch on the PAGE.
+
+   It has to sit on the root rather than on the canvas alone. The chrome above
+   the canvas (the HUD, the page overlay) fills the viewport, and a pinch that
+   lands there is outside the canvas's own hit area — so without this the page
+   zoomed instead, `devicePixelRatio` moved, and the EffectComposer (which
+   resizes only on a CSS size change, never on a ratio change) was left
+   rendering at the old resolution. The blit no longer lined up and the scene
+   went black.
+
+   `pan-y` on the scrollable overlay still lets a finger scroll a page: the
+   gesture that moves content vertically is a page pan, not a zoom, and killing
+   it would make long pages unreadable on a phone. */
+html { touch-action: pan-y; }
+.hud,
+.index,
+.intro { touch-action: none; }
+
 .app__content {
   position: fixed;
   inset: 0;
   z-index: 2;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+  /* keep a page pinch from scaling the document; vertical panning is still free */
+  touch-action: pan-y;
   background: var(--ink-050);
   opacity: 0;
   visibility: hidden;
