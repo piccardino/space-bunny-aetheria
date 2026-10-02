@@ -22,6 +22,7 @@ import { SkyDome } from './SkyDome.jsx';
 import { CloudDeck } from './CloudDeck.jsx';
 import { Lighting, SUN_DIR } from './Lighting.jsx';
 import { PostProcessing } from './PostProcessing.jsx';
+import { ContextGuard } from './ContextGuard.jsx';
 import { Steam, Sparks } from './Particles.jsx';
 import { CameraRig } from '../navigation/CameraRig.jsx';
 import { useWorld } from '../core/store.js';
@@ -183,6 +184,10 @@ export function Scene({ world, onArrive }) {
       />
 
       <PostProcessing quality={tier} />
+
+      {/* must be inside the <Canvas> — it needs the renderer to reach the canvas
+          element, and it has to be mounted before anything allocates GPU memory */}
+      <ContextGuard />
     </>
   );
 }

@@ -16,11 +16,12 @@
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { existsSync, rmSync, mkdtempSync } from 'node:fs';
+import { rmSync, mkdtempSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
+import { resolveBrowser, describeBrowser } from './_browser.mjs';
 
 /**
  * Chrome gets a throwaway profile: a personal Chrome already open under this
@@ -125,34 +126,6 @@ const url = (p = '') => `${ORIGIN}${BASE}${String(p).replace(/^\/+/, '')}`;
 say(`\nAETHERIA - GitHub Pages smoke test`);
 say(`  base ${BASE}\n`);
 
-/**
- * Resolves a browser the same way smoke.mjs / verify-render.mjs do: the
- * CHROME_PATH override first, then a system Chrome/Edge/Chromium install.
- * Puppeteer's own download is often skipped on a fresh clone, and falling back
- * to the system browser keeps this test runnable without a 150 MB fetch.
- */
-function findBrowser() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const roots = [
-    process.env.PROGRAMFILES,
-    process.env['PROGRAMFILES(X86)'],
-    process.env.LOCALAPPDATA,
-  ].filter(Boolean);
-  const rel = [
-    'Google\\Chrome\\Application\\chrome.exe',
-    'Microsoft\\Edge\\Application\\msedge.exe',
-    'Chromium\\Application\\chrome.exe',
-  ];
-  for (const root of roots) {
-    for (const r of rel) {
-      const q = join(root, r);
-      if (existsSync(q)) return q;
-    }
-  }
-  // undefined lets Puppeteer use its own downloaded build
-  return undefined;
-}
-
 const CHROME_ARGS = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
@@ -161,17 +134,17 @@ const CHROME_ARGS = [
   '--use-gl=angle',
   '--use-angle=swiftshader',
   '--enable-unsafe-swiftshader',
-  // a real Chrome already running under this account would otherwise own the
+  // a real browser already running under this account would otherwise own the
   // default profile, and the launch fails with an opaque "Code: 0"
   `--user-data-dir=${TEMP_PROFILE}`,
 ];
 
-const BROWSER_PATH = findBrowser();
-say(`  browser ${BROWSER_PATH ?? '(puppeteer bundled)'}`);
+const BROWSER = resolveBrowser();
+say(`  browser: ${describeBrowser()}`);
 say('  launching…');
 const browser = await puppeteer.launch({
-  headless: 'shell',
-  executablePath: BROWSER_PATH,
+  headless: BROWSER.headless,
+  executablePath: BROWSER.executablePath,
   args: CHROME_ARGS,
   // a stalled launch should fail loudly instead of hanging the whole script
   timeout: 60000,

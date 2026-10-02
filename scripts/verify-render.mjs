@@ -22,9 +22,9 @@
  * Usage:  URL=http://localhost:4174/ SCALE=2 node scripts/verify-render.mjs
  */
 import puppeteer from 'puppeteer';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
-import { join } from 'node:path';
+import { resolveBrowser, describeBrowser } from './_browser.mjs';
 
 const URL = process.env.URL ?? 'http://localhost:4173/';
 
@@ -79,24 +79,13 @@ function luma(path) {
   return { mean: sum / n, max };
 }
 
-function findBrowser() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const roots = [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].filter(Boolean);
-  const rel = [
-    'Google\\Chrome\\Application\\chrome.exe',
-    'Microsoft\\Edge\\Application\\msedge.exe',
-    'Chromium\\Application\\chrome.exe',
-  ];
-  for (const root of roots) for (const r of rel) {
-    const p = join(root, r);
-    if (existsSync(p)) return p;
-  }
-  return undefined;
-}
+
+const BROWSER = resolveBrowser();
+console.log(`  browser: ${describeBrowser()}`);
 
 const browser = await puppeteer.launch({
-  headless: 'shell',
-  executablePath: findBrowser(),
+  headless: BROWSER.headless,
+  executablePath: BROWSER.executablePath,
   args: [
     '--no-sandbox', '--disable-setuid-sandbox',
     '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',

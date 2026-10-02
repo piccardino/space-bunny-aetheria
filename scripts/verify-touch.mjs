@@ -24,9 +24,9 @@
  * Usage: URL=http://localhost:4173/ node scripts/verify-touch.mjs
  */
 import puppeteer from 'puppeteer';
-import { existsSync, readFileSync } from 'node:fs';
+import { resolveBrowser, describeBrowser } from './_browser.mjs';
+import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
-import { join } from 'node:path';
 
 const URL = process.env.URL ?? 'http://localhost:4173/';
 
@@ -86,24 +86,6 @@ function luma(buffer) {
   return { mean: sum / n, max };
 }
 
-function findBrowser() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const roots = [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].filter(Boolean);
-  const rel = [
-    'Google\\Chrome\\Application\\chrome.exe',
-    'Microsoft\\Edge\\Application\\msedge.exe',
-    'Chromium\\Application\\chrome.exe',
-  ];
-  for (const root of roots) {
-    for (const r of rel) {
-      const p = join(root, r);
-      if (existsSync(p)) return p;
-    }
-  }
-  return undefined;
-}
-
-
 let failures = 0;
 const say = (m) => process.stdout.write(`${m}\n`);
 const ok = (m) => say(`  \x1b[32m.\x1b[0m ${m}`);
@@ -127,9 +109,14 @@ const bad = (m) => { failures++; say(`  \x1b[31mx\x1b[0m ${m}`); };
 // consumed by CameraRig as a camera dolly. That is the behaviour under test —
 // the gesture must keep the scene visible at every step.
 
+// Brave is preferred over Chrome — see _browser.mjs. Same Chromium engine, but
+// no content blockers rewriting requests underneath a rendering regression test.
+const BROWSER = resolveBrowser();
+say(`  browser: ${describeBrowser()}`);
+
 const browser = await puppeteer.launch({
-  headless: 'shell',
-  executablePath: findBrowser(),
+  headless: BROWSER.headless,
+  executablePath: BROWSER.executablePath,
   args: [
     '--no-sandbox', '--disable-setuid-sandbox',
     '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
@@ -365,6 +352,70 @@ say('\n6) the dpr pipeline responds to a real re-render');
     bad('could not find the Low-res control to exercise the dpr path');
   }
 }
+
+/* ---- 7) a lost GPU context must not leave a black canvas ----------- */
+say('\n7) WebGL context loss + restore');
+{
+  /*
+   * This is the failure that matches "pinch on my phone and the screen is
+   * black, and it never comes back".
+   *
+   * Per the WebGL spec the app MUST call preventDefault() on webglcontextlost
+   * or the browser never restores the context at all. three.js does that, so
+   * the context does come back — but every render target the postprocessing
+   * chain allocated before the loss still points into the dead one, and
+   * nothing rebuilds it, because from React's point of view nothing changed.
+   * The composer then blits from dead textures: black, at the right
+   * resolution, forever.
+   *
+   * On a laptop GPU this essentially never happens. On a phone the browser
+   * reclaims contexts under memory pressure, most often when it re-composites
+   * the page — which is exactly what a pinch does.
+   */
+  await page.evaluate(() => {
+    window.__ctxEvents = [];
+    const c = document.querySelector('canvas');
+    if (!c) return;
+    // capture phase, so this sees the events regardless of the app's handlers
+    c.addEventListener('webglcontextlost', () => window.__ctxEvents.push('lost'), true);
+    c.addEventListener('webglcontextrestored', () => window.__ctxEvents.push('restored'), true);
+  });
+
+  // Reading getContext back on a canvas that already has one returns the SAME
+  // context, so this drives the live one instead of creating a throwaway.
+  const outcome = await page.evaluate(async () => {
+    const c = document.querySelector('canvas');
+    if (!c) return 'no-canvas';
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return 'no-gl';
+    const ext = gl.getExtension('WEBGL_lose_context');
+    if (!ext) return 'no-ext';
+    ext.loseContext();
+    // a real GPU reset restores on its own; drive the second half by hand
+    await new Promise((r) => setTimeout(r, 1500));
+    ext.restoreContext();
+    return 'ok';
+  });
+
+  if (outcome !== 'ok') {
+    say(`   skipped (${outcome})`);
+  } else {
+    // the restore, and the rebuild it triggers, are both asynchronous
+    await new Promise((r) => setTimeout(r, 4500));
+
+    const events = await page.evaluate(() => window.__ctxEvents);
+    say(`   events: ${events.join(' -> ') || 'none'}`);
+
+    if (events.includes('lost') && events.includes('restored')) ok('context was lost, then restored');
+    else bad(`expected lost+restored, saw: ${events.join(',') || 'nothing'}`);
+
+    const s = await canvasLuma();
+    say(`   luma after restore: ${s.mean.toFixed(1)}  max ${s.max}`);
+    if (s.mean > 12) ok(`recovered from the context loss (luma ${s.mean.toFixed(1)})`);
+    else bad(`STILL BLACK after the context loss (luma ${s.mean.toFixed(1)}) — the composer kept dead targets`);
+  }
+}
+
 
 await browser.close();
 say(failures === 0 ? "\nall checks passed\n" : `\n${failures} check(s) failed\n`);

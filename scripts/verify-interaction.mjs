@@ -28,6 +28,7 @@
 import puppeteer from 'puppeteer';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolveBrowser, describeBrowser } from './_browser.mjs';
 
 const URL = process.argv[2]?.startsWith('http') ? process.argv[2] : 'http://localhost:5173/';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -36,24 +37,13 @@ let failures = 0;
 const pass = (m) => console.log('  PASS  ' + m);
 const fail = (m) => { console.error('  FAIL  ' + m); failures++; };
 
-function findBrowser() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const roots = [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].filter(Boolean);
-  const rel = [
-    'Google\\Chrome\\Application\\chrome.exe',
-    'Microsoft\\Edge\\Application\\msedge.exe',
-    'Chromium\\Application\\chrome.exe',
-  ];
-  for (const root of roots) for (const r of rel) {
-    const p = join(root, r);
-    if (existsSync(p)) return p;
-  }
-  return undefined;
-}
+
+const BROWSER = resolveBrowser();
+console.log(`  browser: ${describeBrowser()}`);
 
 const browser = await puppeteer.launch({
-  headless: 'shell',
-  executablePath: findBrowser(),
+  headless: BROWSER.headless,
+  executablePath: BROWSER.executablePath,
   args: [
     '--no-sandbox', '--disable-setuid-sandbox',
     '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',

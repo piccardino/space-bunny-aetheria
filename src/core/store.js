@@ -109,6 +109,23 @@ export const useWorld = create((set, get) => ({
       if (idx <= 0) return {};
       return { tier: ['low', 'medium', 'high'][idx - 1] };
     }),
+
+  /* ---------------- WebGL context lifecycle ---------------- */
+  /**
+   * Bumped every time the browser hands back a live WebGL context.
+   *
+   * Everything downstream that allocated GPU resources against the OLD context
+   * is holding dead handles: the postprocessing render targets above all.
+   * They are not reallocated on their own, because nothing about the viewport
+   * changed, so without this counter the composer would keep blitting from
+   * textures that no longer exist: a permanently black canvas.
+   */
+  glGeneration: 0,
+  bumpGlGeneration: () => set((s) => ({ glGeneration: s.glGeneration + 1 })),
+  /** Set when the GPU context drops, cleared on restore - for diagnostics. */
+  glLost: false,
+  setGlLost: (v) => set({ glLost: v }),
+
 }));
 
 /** Convenience: imperative access outside React (audio, transitions, ...). */

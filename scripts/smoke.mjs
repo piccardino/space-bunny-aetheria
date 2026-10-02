@@ -13,6 +13,7 @@ import { existsSync } from 'node:fs';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
+import { resolveBrowser, describeBrowser } from './_browser.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -51,30 +52,13 @@ info(`serving dist/ on http://localhost:${PORT}`);
 
 /* Prefer Puppeteer's bundled Chromium, but fall back to a system browser so
    the smoke test also runs on machines where the download was skipped. */
-function findBrowser() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const roots = [
-    process.env.PROGRAMFILES,
-    process.env['PROGRAMFILES(X86)'],
-    process.env.LOCALAPPDATA,
-  ].filter(Boolean);
-  const rel = [
-    'Google\\Chrome\\Application\\chrome.exe',
-    'Microsoft\\Edge\\Application\\msedge.exe',
-    'Chromium\\Application\\chrome.exe',
-  ];
-  for (const root of roots) {
-    for (const r of rel) {
-      const p = join(root, r);
-      if (existsSync(p)) return p;
-    }
-  }
-  return undefined;
-}
+
+const BROWSER = resolveBrowser();
+console.log(`  browser: ${describeBrowser()}`);
 
 const browser = await puppeteer.launch({
-  headless: 'shell',
-  executablePath: findBrowser(),
+  headless: BROWSER.headless,
+  executablePath: BROWSER.executablePath,
   args: [
     '--no-sandbox', '--disable-setuid-sandbox',
     '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',

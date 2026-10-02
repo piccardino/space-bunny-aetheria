@@ -6,21 +6,15 @@
  */
 import puppeteer from 'puppeteer';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { resolveBrowser, describeBrowser } from './_browser.mjs';
 
-function findBrowser() {
-  const roots = [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].filter(Boolean);
-  for (const r of roots) {
-    for (const p of ['Google\\Chrome\\Application\\chrome.exe', 'Microsoft\\Edge\\Application\\msedge.exe']) {
-      const q = join(r, p);
-      if (existsSync(q)) return q;
-    }
-  }
-}
+
+const BROWSER = resolveBrowser();
+console.log(`  browser: ${describeBrowser()}`);
 
 const browser = await puppeteer.launch({
-  headless: 'shell',
-  executablePath: findBrowser(),
+  headless: BROWSER.headless,
+  executablePath: BROWSER.executablePath,
   args: [
     '--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader', '--hide-scrollbars', '--mute-audio',
